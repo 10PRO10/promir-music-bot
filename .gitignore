@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+downloads/*.mp3
+*.db
+*.sqlite
+*.sqlite3
+rebuild_downloads.py
+add_files_to_db.py
+update_track_names.py
