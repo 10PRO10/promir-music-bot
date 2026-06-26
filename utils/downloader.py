@@ -5,7 +5,7 @@ import sqlite3
 from database import DB_PATH
 
 async def search_youtube(query: str) -> str:
-    """Поиск на YouTube"""
+    """Поиск на YouTube с обходом блокировок"""
     for attempt in range(3):
         try:
             ydl_opts = {
@@ -15,6 +15,14 @@ async def search_youtube(query: str) -> str:
                 'socket_timeout': 30,
                 'default_search': 'ytsearch1',
                 'no_check_certificate': True,
+                'extractor_args': {
+                    'youtube': {
+                        'skip': ['hls', 'dash']
+                    }
+                },
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
             }
             
             loop = asyncio.get_event_loop()
@@ -50,12 +58,15 @@ async def search_youtube(query: str) -> str:
     return None
 
 def get_youtube_metadata(url):
-    """Получить метаданные (название, исполнитель) с YouTube"""
+    """Получить метаданные с YouTube"""
     try:
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -72,7 +83,7 @@ def get_youtube_metadata(url):
     return None, None, None
 
 def update_track_in_db(track_id, title, artist):
-    """Обновить трек в базе с правильными названиями"""
+    """Обновить трек в базе"""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -90,7 +101,7 @@ def update_track_in_db(track_id, title, artist):
         print(f"⚠️ Ошибка обновления базы: {e}")
 
 async def download_from_url(url: str, output_path: str = 'downloads', track_id: int = None) -> str:
-    """Скачивание аудио с обновлением метаданных"""
+    """Скачивание с обходом блокировок YouTube"""
     os.makedirs(output_path, exist_ok=True)
     
     # Сначала получаем метаданные
@@ -113,6 +124,16 @@ async def download_from_url(url: str, output_path: str = 'downloads', track_id: 
                 'retries': 3,
                 'fragment_retries': 3,
                 'no_check_certificate': True,
+                # Обход блокировок
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                },
+                'extractor_args': {
+                    'youtube': {
+                        'skip': ['hls', 'dash'],
+                        'player_client': ['ios', 'web']
+                    }
+                }
             }
             
             loop = asyncio.get_event_loop()
@@ -134,7 +155,6 @@ async def download_from_url(url: str, output_path: str = 'downloads', track_id: 
                 
                 # Если получили метаданные и есть track_id
                 if title and track_id:
-                    # Обновляем в базе
                     update_track_in_db(track_id, title, artist or 'Unknown')
                 
                 # Сохраняем в базу скачанных
