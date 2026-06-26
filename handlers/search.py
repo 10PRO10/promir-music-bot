@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from database import search_tracks, get_track, add_to_favorites
-from utils.downloader import search_youtube, download_audio, search_multiple_sources
+from utils.downloader import search_youtube, search_soundcloud, search_vk, search_any, download_audio
 import os
 
 router = Router()
@@ -55,23 +55,26 @@ async def callback_play(callback: CallbackQuery):
     await callback.answer(f"▶️ {track['title']}", show_alert=False)
     
     try:
-        youtube_url = await search_youtube(f"{track['artist']} {track['title']}")
+        # Ищем на всех сервисах
+        youtube_url, platform = await search_any(f"{track['artist']} {track['title']}")
         
         if not youtube_url:
-            await callback.message.answer("❌ Не найдено")
+            await callback.message.answer("😔 Ничего не найдено ни на одном сервисе")
             return
+        
+        await callback.message.answer(f"⏳ Скачиваю с {platform}...", parse_mode='HTML')
         
         audio_path = await download_audio(youtube_url, track_id=track_id)
         
         if not audio_path or not os.path.exists(audio_path):
-            await callback.message.answer("❌ Ошибка")
+            await callback.message.answer(" Ошибка скачивания")
             return
         
         await callback.message.answer_audio(
             FSInputFile(audio_path),
             title=track['title'][:30],
             performer=track['artist'][:30],
-            caption=f"🎵 {track['artist']}\n{track['title']}"
+            caption=f"🎵 {track['artist']}\n{track['title']}\n📡 Источник: {platform}"
         )
         
     except Exception as e:
@@ -87,7 +90,7 @@ async def callback_fav(callback: CallbackQuery):
 
 @router.message(Command('find'))
 async def cmd_find(message: Message):
-    """Поиск трека в интернете"""
+    """Поиск трека на всех сервисах"""
     query = message.text.replace('/find', '').strip()
     
     if not query:
@@ -95,21 +98,22 @@ async def cmd_find(message: Message):
         return
     
     await message.answer(
-        f"🔍 <b>Ищу в интернете:</b> {query}\n\n"
-        f"💡 <i>Бот найдёт трек на YouTube и скачает его</i>",
+        f"🔍 <b>Ищу на всех сервисах:</b> {query}\n\n"
+        f"📡 SoundCloud → YouTube → VK → Bandcamp",
         parse_mode='HTML'
     )
     
-    youtube_url = await search_youtube(query)
+    # Ищем на всех сервисах
+    url, platform = await search_any(query)
     
-    if not youtube_url:
-        await message.answer("😔 Ничего не найдено в интернете")
+    if not url:
+        await message.answer("😔 Ничего не найдено ни на одном сервисе\n\nПопробуй другой запрос")
         return
     
-    await message.answer(f"✅ <b>Найдено!</b>\n\n⏳ Скачиваю...", parse_mode='HTML')
+    await message.answer(f"✅ <b>Найдено на {platform}!</b>\n\n⏳ Скачиваю...", parse_mode='HTML')
     
     try:
-        audio_path = await download_audio(youtube_url)
+        audio_path = await download_audio(url)
         
         if not audio_path or not os.path.exists(audio_path):
             await message.answer("❌ Ошибка скачивания")
@@ -117,7 +121,7 @@ async def cmd_find(message: Message):
         
         await message.answer_audio(
             FSInputFile(audio_path),
-            caption=f"🎵 Найдено и скачано из интернета"
+            caption=f"🎵 Найдено и скачано\n📡 Источник: {platform}"
         )
         
     except Exception as e:
