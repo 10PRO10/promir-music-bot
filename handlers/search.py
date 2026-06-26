@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from database import search_tracks, get_track, add_to_favorites
-from utils.downloader import search_youtube, search_soundcloud, search_vk, search_any, download_audio
+from utils.downloader import search_any, download_audio
 import os
 
 router = Router()
@@ -55,19 +55,19 @@ async def callback_play(callback: CallbackQuery):
     await callback.answer(f"▶️ {track['title']}", show_alert=False)
     
     try:
-        # Ищем на всех сервисах
-        youtube_url, platform = await search_any(f"{track['artist']} {track['title']}")
+        # Ищем на всех сервисах (SoundCloud первым!)
+        url, platform = await search_any(f"{track['artist']} {track['title']}")
         
-        if not youtube_url:
-            await callback.message.answer("😔 Ничего не найдено ни на одном сервисе")
+        if not url:
+            await callback.message.answer("😔 Ничего не найдено ни на одном сервисе\n\nПопробуй другой трек")
             return
         
         await callback.message.answer(f"⏳ Скачиваю с {platform}...", parse_mode='HTML')
         
-        audio_path = await download_audio(youtube_url, track_id=track_id)
+        audio_path = await download_audio(url, track_id=track_id)
         
         if not audio_path or not os.path.exists(audio_path):
-            await callback.message.answer(" Ошибка скачивания")
+            await callback.message.answer("❌ Ошибка скачивания")
             return
         
         await callback.message.answer_audio(
@@ -90,7 +90,7 @@ async def callback_fav(callback: CallbackQuery):
 
 @router.message(Command('find'))
 async def cmd_find(message: Message):
-    """Поиск трека на всех сервисах"""
+    """Поиск трека на всех сервисах (SoundCloud первым!)"""
     query = message.text.replace('/find', '').strip()
     
     if not query:
@@ -99,7 +99,11 @@ async def cmd_find(message: Message):
     
     await message.answer(
         f"🔍 <b>Ищу на всех сервисах:</b> {query}\n\n"
-        f"📡 SoundCloud → YouTube → VK → Bandcamp",
+        f"📡 Порядок поиска:\n"
+        f"1️⃣ SoundCloud (не блокирует)\n"
+        f"2️⃣ Bandcamp\n"
+        f"3️⃣ YouTube\n"
+        f"4️⃣ VK",
         parse_mode='HTML'
     )
     

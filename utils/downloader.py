@@ -44,11 +44,11 @@ async def search_youtube(query: str) -> str:
             print(f"⚠️ YouTube ошибка: {e}")
             await asyncio.sleep(1)
     
-    print(" YouTube не нашёл")
+    print("❌ YouTube не нашёл")
     return None
 
 async def search_soundcloud(query: str) -> str:
-    """Поиск на SoundCloud"""
+    """Поиск на SoundCloud - НЕ БЛОКИРУЕТ!"""
     print(f"🔍 Ищу на SoundCloud: {query}")
     for attempt in range(2):
         try:
@@ -117,7 +117,7 @@ async def search_vk(query: str) -> str:
                 return result
                 
         except Exception as e:
-            print(f"️ VK ошибка: {e}")
+            print(f"⚠️ VK ошибка: {e}")
             await asyncio.sleep(1)
     
     print("❌ VK не нашёл")
@@ -162,30 +162,44 @@ async def search_bandcamp(query: str) -> str:
     return None
 
 # ==================== УНИВЕРСАЛЬНЫЙ ПОИСК ====================
+# ПОРЯДОК: SoundCloud → Bandcamp → YouTube → VK
 
 async def search_any(query: str) -> tuple:
-    """Ищет на всех сервисах по очереди, возвращает (url, platform)"""
+    """Ищет на всех сервисах - SoundCloud ПЕРВЫМ (не блокирует)!"""
     print(f"\n🎵 Поиск трека: {query}")
     print("="*50)
     
-    # Порядок поиска: SoundCloud → YouTube → VK → Bandcamp
-    # SoundCloud первый потому что не блокирует сервера
-    
+    # 1. SoundCloud - НЕ БЛОКИРУЕТ!
+    print("📡 Пробую SoundCloud...")
     url = await search_soundcloud(query)
     if url:
+        print("="*50)
+        print(f"✅ Найдено на SoundCloud!")
         return url, 'SoundCloud'
     
-    url = await search_youtube(query)
-    if url:
-        return url, 'YouTube'
-    
-    url = await search_vk(query)
-    if url:
-        return url, 'VK'
-    
+    # 2. Bandcamp - тоже хороший
+    print("📡 Пробую Bandcamp...")
     url = await search_bandcamp(query)
     if url:
+        print("="*50)
+        print(f"✅ Найдено на Bandcamp!")
         return url, 'Bandcamp'
+    
+    # 3. YouTube - может блокировать
+    print("📡 Пробую YouTube...")
+    url = await search_youtube(query)
+    if url:
+        print("="*50)
+        print(f"✅ Найдено на YouTube!")
+        return url, 'YouTube'
+    
+    # 4. VK
+    print("📡 Пробую VK...")
+    url = await search_vk(query)
+    if url:
+        print("="*50)
+        print(f"✅ Найдено на VK!")
+        return url, 'VK'
     
     print("="*50)
     print("❌ Ничего не найдено ни на одном сервисе")
@@ -285,7 +299,7 @@ async def download_from_url(url: str, output_path: str = 'downloads', track_id: 
                         await add_downloaded_track(track_id, result, file_size)
                         print(f"💾 Сохранено в базу: трек {track_id}")
                     except Exception as e:
-                        print(f"️ Не удалось сохранить: {e}")
+                        print(f"⚠️ Не удалось сохранить: {e}")
                 
                 return result
                 
@@ -311,6 +325,11 @@ async def search_multiple_sources(query: str) -> list:
     if url:
         results.append({'platform': 'SoundCloud', 'url': url, 'query': query})
     
+    # Bandcamp
+    url = await search_bandcamp(query)
+    if url:
+        results.append({'platform': 'Bandcamp', 'url': url, 'query': query})
+    
     # YouTube
     url = await search_youtube(query)
     if url:
@@ -320,10 +339,5 @@ async def search_multiple_sources(query: str) -> list:
     url = await search_vk(query)
     if url:
         results.append({'platform': 'VK', 'url': url, 'query': query})
-    
-    # Bandcamp
-    url = await search_bandcamp(query)
-    if url:
-        results.append({'platform': 'Bandcamp', 'url': url, 'query': query})
     
     return results
