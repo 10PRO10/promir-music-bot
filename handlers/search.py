@@ -45,6 +45,7 @@ async def do_search(message: Message, query: str):
 
 @router.callback_query(F.data.startswith('play_'))
 async def callback_play(callback: CallbackQuery):
+    """ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ! Ищем по НАЗВАНИЮ, а не по youtube_url!"""
     track_id = int(callback.data.split('_')[1])
     track = await get_track(track_id)
     
@@ -55,11 +56,14 @@ async def callback_play(callback: CallbackQuery):
     await callback.answer(f"▶️ {track['title']}", show_alert=False)
     
     try:
-        # Ищем на всех сервисах (SoundCloud первым!)
-        url, platform = await search_any(f"{track['artist']} {track['title']}")
+        # 🔥 ГЛАВНОЕ: Ищем по НАЗВАНИЮ, а не по youtube_url!
+        query = f"{track['artist']} {track['title']}"
+        print(f"\n🎵 Ищу трек по названию: {query}")
+        
+        url, platform = await search_any(query)
         
         if not url:
-            await callback.message.answer("😔 Ничего не найдено ни на одном сервисе\n\nПопробуй другой трек")
+            await callback.message.answer("😔 Ничего не найдено ни на одном сервисе")
             return
         
         await callback.message.answer(f"⏳ Скачиваю с {platform}...", parse_mode='HTML')
@@ -90,7 +94,7 @@ async def callback_fav(callback: CallbackQuery):
 
 @router.message(Command('find'))
 async def cmd_find(message: Message):
-    """Поиск трека на всех сервисах (SoundCloud первым!)"""
+    """Поиск трека на всех сервисах"""
     query = message.text.replace('/find', '').strip()
     
     if not query:
@@ -99,19 +103,14 @@ async def cmd_find(message: Message):
     
     await message.answer(
         f"🔍 <b>Ищу на всех сервисах:</b> {query}\n\n"
-        f"📡 Порядок поиска:\n"
-        f"1️⃣ SoundCloud (не блокирует)\n"
-        f"2️⃣ Bandcamp\n"
-        f"3️⃣ YouTube\n"
-        f"4️⃣ VK",
+        f"📡 SoundCloud → Bandcamp → YouTube → VK",
         parse_mode='HTML'
     )
     
-    # Ищем на всех сервисах
     url, platform = await search_any(query)
     
     if not url:
-        await message.answer("😔 Ничего не найдено ни на одном сервисе\n\nПопробуй другой запрос")
+        await message.answer("😔 Ничего не найдено ни на одном сервисе")
         return
     
     await message.answer(f"✅ <b>Найдено на {platform}!</b>\n\n⏳ Скачиваю...", parse_mode='HTML')
