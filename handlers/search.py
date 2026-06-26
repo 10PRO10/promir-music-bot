@@ -87,6 +87,7 @@ async def callback_fav(callback: CallbackQuery):
 
 @router.message(Command('find'))
 async def cmd_find(message: Message):
+    """Поиск трека в интернете"""
     query = message.text.replace('/find', '').strip()
     
     if not query:
